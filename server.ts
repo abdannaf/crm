@@ -228,27 +228,28 @@ async function startServer() {
   });
 
   app.get("/api/leads/search", (req, res) => {
-    const query = req.query.q as string;
+    const rawQuery = req.query.q;
 
-    if (!query) {
+    if (typeof rawQuery !== "string" || !rawQuery.trim()) {
       return res.status(400).json({ error: "Search query is required" });
     }
 
+    const searchTerm = rawQuery.trim();
+
     try {
-      const sql = `SELECT * FROM leads WHERE name LIKE '%${query}%' OR company LIKE '%${query}%' OR email LIKE '%${query}%'`;
+      const pattern = `%${searchTerm}%`;
+      const results = db
+        .prepare(
+          `SELECT * FROM leads 
+           WHERE name LIKE ? OR company LIKE ? OR email LIKE ?
+           ORDER BY updated_at DESC
+           LIMIT 100`
+        )
+        .all(pattern, pattern, pattern);
 
-      console.log(`[search] Executing query: ${sql}`);
-
-      const results = db.prepare(sql).all();
-
-      console.log(`[search] Found ${results.length} results for query: ${query}`);
       res.json(results);
-    } catch (error: any) {
-      console.log(`[search] Error executing search: ${error.message}`);
-      res.status(500).json({
-        error: "Search failed",
-        details: error.message,
-      });
+    } catch (error) {
+      res.status(500).json({ error: "Search failed" });
     }
   });
 
