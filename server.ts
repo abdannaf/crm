@@ -227,6 +227,32 @@ async function startServer() {
     }
   });
 
+  app.get("/api/leads/search", (req, res) => {
+    const rawQuery = req.query.q;
+
+    if (typeof rawQuery !== "string" || !rawQuery.trim()) {
+      return res.status(400).json({ error: "Search query is required" });
+    }
+
+    const searchTerm = rawQuery.trim();
+
+    try {
+      const pattern = `%${searchTerm}%`;
+      const results = db
+        .prepare(
+          `SELECT * FROM leads 
+           WHERE name LIKE ? OR company LIKE ? OR email LIKE ?
+           ORDER BY updated_at DESC
+           LIMIT 100`
+        )
+        .all(pattern, pattern, pattern);
+
+      res.json(results);
+    } catch (error) {
+      res.status(500).json({ error: "Search failed" });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
